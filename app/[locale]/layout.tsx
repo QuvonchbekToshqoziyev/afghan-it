@@ -117,14 +117,20 @@ export default async function RootLayout({
   setRequestLocale(locale);
 
   const messages = await getMessages();
-  const tenant = await getCurrentTenant();
+  let tenant: Awaited<ReturnType<typeof getCurrentTenant>> = null;
+  try {
+    tenant = await getCurrentTenant();
+  } catch {
+    // The platform homepage is deployable on Neon before legacy Supabase is configured.
+  }
 
   // Load tenant settings for branding overrides (use admin client to bypass RLS
   // since these are public tenant configuration, not user-specific data)
   // setting_value is jsonb: `{ value: string }` for branding keys, a StoredPreset for theme_preset
   let tenantSettings: Record<string, { value?: string } | undefined> = {};
   if (tenant) {
-    const settings = await getTenantSettings(tenant.id);
+    let settings: Awaited<ReturnType<typeof getTenantSettings>> = [];
+    try { settings = await getTenantSettings(tenant.id); } catch { /* Neon-only deployment */ }
     tenantSettings = settings.reduce((acc: typeof tenantSettings, s) => {
       acc[s.setting_key] = s.setting_value;
       return acc;
