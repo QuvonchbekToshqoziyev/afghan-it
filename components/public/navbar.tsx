@@ -15,16 +15,23 @@ interface NavbarProps {
 }
 
 export async function Navbar({ headerSettings }: NavbarProps = {}) {
-    const supabase = await createClient();
-    const userId = await getCurrentUserId()
+    let supabase: Awaited<ReturnType<typeof createClient>> | null = null;
+    let userId: string | null = null;
+    let tenant: Awaited<ReturnType<typeof getCurrentTenant>> = null;
+    try {
+        supabase = await createClient();
+        userId = await getCurrentUserId();
+        tenant = await getCurrentTenant();
+    } catch {
+        // The public platform landing page can run on Neon before legacy Supabase is configured.
+    }
     const t = await getTranslations('navbar');
-    const tenant = await getCurrentTenant();
 
     const isMainPlatform = !tenant || tenant.id === DEFAULT_TENANT_ID
 
     // Load branding overrides from tenant_settings
     let brandingOverrides: Record<string, any> = {};
-    if (tenant) {
+    if (tenant && supabase) {
         const { data: tsData } = await supabase
             .from('tenant_settings')
             .select('setting_key, setting_value')
@@ -40,7 +47,7 @@ export async function Navbar({ headerSettings }: NavbarProps = {}) {
 
     // Get user's tenants for the switcher
     let userTenants: any[] = [];
-    if (userId) {
+    if (userId && supabase) {
         const { data } = await supabase
             .from('tenant_users')
             .select('role, tenant:tenants(id, slug, name)')
