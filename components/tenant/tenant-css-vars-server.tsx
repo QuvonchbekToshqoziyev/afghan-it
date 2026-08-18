@@ -1,0 +1,104 @@
+import { readableOn } from '@/lib/color/contrast'
+import { getPresetById, FONT_OPTIONS, type StoredPreset, type CSSVariableMap } from '@/lib/themes/presets'
+
+/**
+ * Resolves CSS variable maps from a StoredPreset.
+ * Shared between server (inline <style>) and client (dark/light switching).
+ */
+export function resolvePresetVars(storedPreset: StoredPreset): {
+  light?: CSSVariableMap
+  dark?: CSSVariableMap
+} {
+  if (storedPreset.type === 'curated') {
+    const preset = getPresetById(storedPreset.id)
+    return { light: preset?.variables.light, dark: preset?.variables.dark }
+  }
+  return { light: storedPreset.variables?.light, dark: storedPreset.variables?.dark }
+}
+
+function cssVarsToString(vars: CSSVariableMap): string {
+  return Object.entries(vars)
+    .map(([key, value]) => `${key}: ${value};`)
+    .join('\n    ')
+}
+
+interface Props {
+  themePreset?: StoredPreset | null
+  primaryColor?: string
+  secondaryColor?: string
+}
+
+/**
+ * Server component that injects tenant CSS variables as an inline <style> tag
+ * in the initial HTML. This eliminates the flash of default colors that occurs
+ * when CSS variables are applied client-side via useEffect.
+ */
+export function TenantCssVarsServer({ themePreset, primaryColor, secondaryColor }: Props) {
+  let css = ''
+
+  if (themePreset) {
+    const { light, dark } = resolvePresetVars(themePreset)
+
+    // Build light mode vars
+    if (light) {
+      const lightVars = { ...light }
+      if (themePreset.radius) lightVars['--radius'] = themePreset.radius
+      if (themePreset.fontFamily) lightVars['--font-sans'] = `"${themePreset.fontFamily}", sans-serif`
+      css += `:root {\n    ${cssVarsToString(lightVars)}\n  }\n`
+    }
+
+    // Build dark mode vars
+    if (dark) {
+      const darkVars = { ...dark }
+      if (themePreset.radius) darkVars['--radius'] = themePreset.radius
+      if (themePreset.fontFamily) darkVars['--font-sans'] = `"${themePreset.fontFamily}", sans-serif`
+      css += `  .dark {\n    ${cssVarsToString(darkVars)}\n  }\n`
+    }
+  }
+
+  // Brand color overrides — applied AFTER any preset so an explicit brand color
+  // always wins. Appended as the last :root rule so CSS cascade resolves to it.
+  // These vars feed the primary accent surfaces used across the app + Puck blocks.
+  const brandOverrides: string[] = []
+  if (primaryColor) {
+    brandOverrides.push(`--primary: ${primaryColor};`)
+    brandOverrides.push(`--sidebar-primary: ${primaryColor};`)
+    brandOverrides.push(`--ring: ${primaryColor};`)
+
+    // `--primary-foreground` is the text drawn on top of `--primary`, and the
+    // stock value is a near-white. Overriding the brand colour without it left
+    // every primary surface — buttons, the Puck hero/CTA/banner blocks, the
+    // sidebar — white-on-pale for any school with a light brand colour (#569).
+    // Derived only when the colour parses; an exotic value keeps the default.
+    const primaryInk = readableOn(primaryColor, '')
+    if (primaryInk) {
+      brandOverrides.push(`--primary-foreground: ${primaryInk};`)
+      brandOverrides.push(`--sidebar-primary-foreground: ${primaryInk};`)
+    }
+  }
+  if (secondaryColor) {
+    brandOverrides.push(`--secondary-brand: ${secondaryColor};`)
+  }
+  if (brandOverrides.length > 0) {
+    css += `:root {\n    ${brandOverrides.join('\n    ')}\n  }\n`
+  }
+
+  if (!css) return null
+
+  // Build font preload link if custom font is set
+  const fontLink = themePreset?.fontFamily
+    ? FONT_OPTIONS.find((f) => f.value === themePreset.fontFamily)
+    : null
+
+  return (
+    <>
+      {fontLink && (
+        <link
+          rel="stylesheet"
+          href={`https://fonts.googleapis.com/css2?family=${fontLink.googleFamily}&display=swap`}
+        />
+      )}
+      <style dangerouslySetInnerHTML={{ __html: css }} />
+    </>
+  )
+}

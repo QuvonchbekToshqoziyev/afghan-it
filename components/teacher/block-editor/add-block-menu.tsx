@@ -1,0 +1,203 @@
+'use client'
+
+import { useState } from 'react'
+import { useTranslations } from 'next-intl'
+import {
+  IconPlus,
+  IconAlignLeft,
+  IconH1,
+  IconInfoCircle,
+  IconCode,
+  IconHelpCircle,
+  IconEyeOff,
+  IconListNumbers,
+  IconLanguage,
+  IconBook2,
+  IconPhoto,
+  IconPlayerPlay,
+  IconMinus,
+  IconVolume,
+  IconWorldWww,
+  IconFileDownload,
+  IconListDetails,
+  IconArrowsExchange,
+  IconTable,
+  IconCards,
+  IconTextPlus,
+  IconArrowsShuffle,
+  IconSortAscending,
+  IconChecklist,
+} from '@tabler/icons-react'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import type { BlockType } from './types'
+import { cn } from '@/lib/utils'
+
+// Map block types to actual Tabler icons and colors
+const BLOCK_ICONS: Record<BlockType, { icon: typeof IconAlignLeft; color: string; bg: string }> = {
+  text: { icon: IconAlignLeft, color: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800' },
+  heading: { icon: IconH1, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-950' },
+  callout: { icon: IconInfoCircle, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-950' },
+  code: { icon: IconCode, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950' },
+  quiz: { icon: IconHelpCircle, color: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-50 dark:bg-violet-950' },
+  spoiler: { icon: IconEyeOff, color: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-950' },
+  steps: { icon: IconListNumbers, color: 'text-cyan-600 dark:text-cyan-400', bg: 'bg-cyan-50 dark:bg-cyan-950' },
+  vocabulary: { icon: IconLanguage, color: 'text-pink-600 dark:text-pink-400', bg: 'bg-pink-50 dark:bg-pink-950' },
+  definition: { icon: IconBook2, color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-950' },
+  image: { icon: IconPhoto, color: 'text-sky-600 dark:text-sky-400', bg: 'bg-sky-50 dark:bg-sky-950' },
+  video: { icon: IconPlayerPlay, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-950' },
+  divider: { icon: IconMinus, color: 'text-gray-500 dark:text-gray-400', bg: 'bg-gray-100 dark:bg-gray-800' },
+  audio: { icon: IconVolume, color: 'text-teal-600 dark:text-teal-400', bg: 'bg-teal-50 dark:bg-teal-950' },
+  embed: { icon: IconWorldWww, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-950' },
+  'file-download': { icon: IconFileDownload, color: 'text-lime-600 dark:text-lime-400', bg: 'bg-lime-50 dark:bg-lime-950' },
+  glossary: { icon: IconListDetails, color: 'text-yellow-600 dark:text-yellow-400', bg: 'bg-yellow-50 dark:bg-yellow-950' },
+  comparison: { icon: IconArrowsExchange, color: 'text-fuchsia-600 dark:text-fuchsia-400', bg: 'bg-fuchsia-50 dark:bg-fuchsia-950' },
+  table: { icon: IconTable, color: 'text-stone-600 dark:text-stone-400', bg: 'bg-stone-100 dark:bg-stone-800' },
+  'flashcard-set': { icon: IconCards, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-950' },
+  'fill-in-the-blank': { icon: IconTextPlus, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950' },
+  'matching-pairs': { icon: IconArrowsShuffle, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-950' },
+  ordering: { icon: IconSortAscending, color: 'text-cyan-600 dark:text-cyan-400', bg: 'bg-cyan-50 dark:bg-cyan-950' },
+  checkpoint: { icon: IconChecklist, color: 'text-teal-600 dark:text-teal-400', bg: 'bg-teal-50 dark:bg-teal-950' },
+}
+
+// Group blocks by category for the palette
+const BLOCK_GROUPS = [
+  {
+    key: 'text',
+    types: ['text', 'heading', 'callout'] as BlockType[],
+  },
+  {
+    key: 'media',
+    types: ['image', 'video', 'audio', 'embed', 'file-download', 'code'] as BlockType[],
+  },
+  {
+    key: 'interactive',
+    types: ['quiz', 'flashcard-set', 'fill-in-the-blank', 'matching-pairs', 'ordering', 'checkpoint'] as BlockType[],
+  },
+  {
+    key: 'data',
+    types: ['table', 'comparison', 'glossary', 'definition'] as BlockType[],
+  },
+  {
+    key: 'structure',
+    types: ['steps', 'spoiler', 'vocabulary', 'divider'] as BlockType[],
+  },
+]
+
+interface AddBlockMenuProps {
+  onSelect: (type: BlockType) => void
+  position?: 'top' | 'inline' | 'between'
+}
+
+// The palette is taller than the room most triggers leave on screen; PopoverContent
+// caps itself at `--available-height` and scrolls, so all 23 blocks stay reachable.
+const PALETTE_POPOVER_CLASS = 'w-[360px] p-3'
+
+export function AddBlockMenu({ onSelect, position = 'inline' }: AddBlockMenuProps) {
+  const t = useTranslations('dashboard.teacher.lessonEditor.blockEditor')
+  const [open, setOpen] = useState(false)
+
+  const handleSelect = (type: BlockType) => {
+    onSelect(type)
+    setOpen(false)
+  }
+
+  // Inline between-block inserter (Notion-style line)
+  if (position === 'between') {
+    return (
+      <Popover open={open} onOpenChange={setOpen}>
+        <div className="group/inserter relative flex items-center py-0.5 -my-0.5 cursor-pointer">
+          <div className="absolute inset-x-0 top-1/2 h-px bg-transparent group-hover/inserter:bg-primary/30 transition-colors" />
+          <PopoverTrigger
+            className="relative z-10 mx-auto flex h-5 w-5 items-center justify-center rounded-full border bg-background text-muted-foreground opacity-0 group-hover/inserter:opacity-100 transition-all hover:bg-primary hover:text-primary-foreground hover:border-primary shadow-sm"
+          >
+            <IconPlus className="h-3 w-3" />
+          </PopoverTrigger>
+        </div>
+        <PopoverContent align="center" side="bottom" className={PALETTE_POPOVER_CLASS} sideOffset={4}>
+          <BlockPalette onSelect={handleSelect} />
+        </PopoverContent>
+      </Popover>
+    )
+  }
+
+  // Top-level "Add first block" button
+  if (position === 'top') {
+    return (
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger
+          className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/20 bg-muted/30 px-4 py-3 text-sm text-muted-foreground transition-all hover:border-primary/40 hover:bg-primary/5 hover:text-foreground"
+        >
+          <IconPlus className="h-4 w-4" />
+          {t('addBlock')}
+        </PopoverTrigger>
+        <PopoverContent align="center" side="bottom" className={PALETTE_POPOVER_CLASS} sideOffset={4}>
+          <BlockPalette onSelect={handleSelect} />
+        </PopoverContent>
+      </Popover>
+    )
+  }
+
+  // Inline small trigger (used in sortable block actions)
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        className="inline-flex items-center gap-1 rounded-md p-1 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+        aria-label={t('addBlock')}
+      >
+        <IconPlus className="h-4 w-4" />
+      </PopoverTrigger>
+      <PopoverContent align="end" side="bottom" className={PALETTE_POPOVER_CLASS} sideOffset={4}>
+        <BlockPalette onSelect={handleSelect} />
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+// Visual grid palette showing all block types grouped
+function BlockPalette({ onSelect }: { onSelect: (type: BlockType) => void }) {
+  const t = useTranslations('dashboard.teacher.lessonEditor.blockEditor')
+
+  return (
+    <div className="space-y-3">
+      {BLOCK_GROUPS.map((group) => (
+        <div key={group.key}>
+          <p className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            {t(`groups.${group.key}`)}
+          </p>
+          <div className="grid grid-cols-3 gap-1.5">
+            {group.types.map((type) => {
+              const iconData = BLOCK_ICONS[type]
+              const Icon = iconData.icon
+              return (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => onSelect(type)}
+                  className={cn(
+                    'group flex flex-col items-center gap-1.5 rounded-lg border border-transparent px-2 py-2.5 text-center transition-all',
+                    'hover:border-border hover:bg-accent hover:shadow-sm',
+                    'active:scale-95'
+                  )}
+                >
+                  <div className={cn('flex h-8 w-8 items-center justify-center rounded-md', iconData.bg)}>
+                    <Icon className={cn('h-4 w-4', iconData.color)} />
+                  </div>
+                  <span className="text-xs font-medium leading-tight text-foreground/80 group-hover:text-foreground">
+                    {t(`blocks.${type}.label`)}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// Export for reuse in block-editor sidebar
+export { BlockPalette, BLOCK_ICONS }

@@ -1,0 +1,71 @@
+import type { Page } from '@playwright/test'
+import { BASE, TENANT_BASE, LOCALE, ACCOUNTS } from './constants'
+
+/**
+ * Disable all guided tours by setting the global kill-switch in localStorage.
+ * Must be called after navigating to the app domain (localStorage is per-origin).
+ */
+async function dismissTours(page: Page) {
+  await page.evaluate(() => {
+    localStorage.setItem('tours-disabled', 'true')
+  })
+}
+
+/**
+ * Generic login using data-testid selectors (the proven working pattern).
+ * Automatically dismisses all guided tours after login.
+ */
+export async function login(
+  page: Page,
+  email: string,
+  password: string,
+  baseUrl = BASE
+) {
+  await page.goto(`${baseUrl}/${LOCALE}/auth/login`)
+  await page.getByTestId('login-email').fill(email)
+  await page.getByTestId('login-password').fill(password)
+  await page.getByTestId('login-submit').click()
+  await page.waitForURL('**/dashboard/**', { timeout: 20_000 })
+  await dismissTours(page)
+}
+
+/** Login as student on the default tenant */
+export async function loginAsStudent(page: Page, baseUrl = BASE) {
+  await login(page, ACCOUNTS.student.email, ACCOUNTS.student.password, baseUrl)
+}
+
+/** Login as teacher/owner on the default tenant */
+export async function loginAsTeacher(page: Page, baseUrl = BASE) {
+  await login(page, ACCOUNTS.teacher.email, ACCOUNTS.teacher.password, baseUrl)
+}
+
+/** Login as admin on the code-academy tenant */
+export async function loginAsAdmin(page: Page, baseUrl = TENANT_BASE) {
+  await login(page, ACCOUNTS.admin.email, ACCOUNTS.admin.password, baseUrl)
+}
+
+/** Login as student on the code-academy tenant */
+export async function loginAsTenantStudent(page: Page, baseUrl = TENANT_BASE) {
+  await login(
+    page,
+    ACCOUNTS.tenantStudent.email,
+    ACCOUNTS.tenantStudent.password,
+    baseUrl
+  )
+}
+
+/**
+ * Login as super admin on the platform domain (default tenant).
+ * After login, navigates to /en/platform (does NOT wait for dashboard/**).
+ */
+export async function loginAsSuperAdmin(page: Page, baseUrl = BASE) {
+  await page.goto(`${baseUrl}/${LOCALE}/auth/login`)
+  await page.getByTestId('login-email').fill(ACCOUNTS.superAdmin.email)
+  await page.getByTestId('login-password').fill(ACCOUNTS.superAdmin.password)
+  await page.getByTestId('login-submit').click()
+  // Super admin lands on /dashboard/teacher — then navigate to platform
+  await page.waitForURL('**/dashboard/**', { timeout: 20_000 })
+  await dismissTours(page)
+  await page.goto(`${baseUrl}/${LOCALE}/platform`)
+  await page.waitForSelector('[data-testid="platform-overview"]', { timeout: 15_000 })
+}

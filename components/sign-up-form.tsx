@@ -1,0 +1,245 @@
+'use client'
+
+import { cn } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/client'
+import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import Link from 'next/link'
+import { useTranslations } from 'next-intl'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useState } from 'react'
+import { Eye, EyeOff } from 'lucide-react'
+import {
+  InputGroup,
+  InputGroupInput,
+  InputGroupAddon,
+  InputGroupButton,
+} from '@/components/ui/input-group'
+import { getSafeNextPath } from '@/lib/auth/safe-next-path'
+
+interface SignUpFormProps extends React.ComponentPropsWithoutRef<'div'> {
+  tenantId?: string
+}
+
+export function SignUpForm({ className, tenantId, ...props }: SignUpFormProps) {
+  const t = useTranslations('auth.signup')
+  const [fullName, setFullName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [isSocialLoading, setIsSocialLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const nextPath = getSafeNextPath(searchParams.get('next'), '')
+
+  // Supabase returns raw English strings; map the ones users actually hit to
+  // translated copy and keep the rest as a last resort.
+  const localizedError = (err: unknown) => {
+    const raw = err instanceof Error ? err.message : ''
+    const m = raw.toLowerCase()
+    if (m.includes('already registered') || m.includes('already exists')) return t('errors.emailTaken')
+    if (m.includes('rate limit') || m.includes('too many')) return t('errors.rateLimited')
+    if (m.includes('password')) return t('errors.weakPassword')
+    return raw || t('errors.generic')
+  }
+
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const supabase = createClient()
+    const name = fullName.trim()
+    if (!name) {
+      setError(t('errors.nameRequired'))
+      return
+    }
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      await supabase.auth.signOut({ scope: 'local' })
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/confirm${nextPath ? `?next=${encodeURIComponent(nextPath)}` : ''}`,
+          data: {
+            // handle_new_user() copies full_name into profiles. Without it every
+            // teacher/admin list shows the student as "Unknown Student".
+            full_name: name,
+            // handle_new_user() reads preferred_tenant_id to stamp the JWT's
+            // tenant claim; without it a fresh signup can't see tenant content.
+            ...(tenantId ? { tenant_id: tenantId, preferred_tenant_id: tenantId } : {}),
+          },
+        },
+      })
+      if (error) throw error
+      if (data.session) {
+        // The signup token predates handle_new_user()'s app_metadata write, so
+        // it lacks the tenant_id claim — refresh to get one that has it, or
+        // tenant-scoped RLS fails closed and the next page 404s.
+        await supabase.auth.refreshSession()
+      }
+      router.push(data.session && nextPath ? nextPath : '/auth/sign-up-success')
+    } catch (error: unknown) {
+      setError(localizedError(error))
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleGoogleSignUp = async () => {
+    const supabase = createClient()
+    setIsSocialLoading(true)
+    setError(null)
+
+    try {
+      await supabase.auth.signOut({ scope: 'local' })
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/api/auth/callback${nextPath ? `?next=${encodeURIComponent(nextPath)}` : ''}`,
+        },
+      })
+      if (error) throw error
+    } catch (error: unknown) {
+      setError(localizedError(error))
+      setIsSocialLoading(false)
+    }
+  }
+
+  return (
+    <div className={cn('flex flex-col gap-6', className)} {...props}>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-2xl" data-testid="signup-title">{t('title')}</CardTitle>
+          <CardDescription>{t('description')}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSignUp}>
+            <div className="flex flex-col gap-6">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled={isLoading || isSocialLoading}
+                onClick={handleGoogleSignUp}
+              >
+                <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
+                    fill="#4285F4"
+                  />
+                  <path
+                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                    fill="#34A853"
+                  />
+                  <path
+                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                    fill="#FBBC05"
+                  />
+                  <path
+                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                    fill="#EA4335"
+                  />
+                </svg>
+                {isSocialLoading ? t('submitting') : t('continueWithGoogle')}
+              </Button>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">{t('orContinueWith')}</span>
+                </div>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="full-name">{t('fullName')}</Label>
+                <Input
+                  id="full-name"
+                  data-testid="signup-name"
+                  type="text"
+                  autoComplete="name"
+                  placeholder={t('fullNamePlaceholder')}
+                  required
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="email">{t('email')}</Label>
+                <Input
+                  id="email"
+                  data-testid="signup-email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="m@example.com"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <div className="flex items-center">
+                  <Label htmlFor="password">{t('password')}</Label>
+                </div>
+                <InputGroup>
+                  <InputGroupInput
+                    id="password"
+                    data-testid="signup-password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    aria-describedby="password-hint"
+                    required
+                    minLength={6}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                  <InputGroupAddon align="inline-end">
+                    <InputGroupButton
+                      size="icon-xs"
+                      onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword ? t('hidePassword') : t('showPassword')}
+                    >
+                      {showPassword ? <EyeOff /> : <Eye />}
+                    </InputGroupButton>
+                  </InputGroupAddon>
+                </InputGroup>
+                <p id="password-hint" className="text-xs text-muted-foreground">
+                  {t('passwordHint')}
+                </p>
+              </div>
+              {error && (
+                <p role="alert" className="text-sm text-destructive">
+                  {error}
+                </p>
+              )}
+              <Button type="submit" className="w-full" disabled={isLoading || isSocialLoading} data-testid="signup-submit">
+                {isLoading ? t('submitting') : t('submit')}
+              </Button>
+            </div>
+            <div className="mt-4 text-center text-sm">
+              {t('haveAccount')}{' '}
+              <Link
+                href={nextPath ? `/auth/login?next=${encodeURIComponent(nextPath)}` : '/auth/login'}
+                className="underline underline-offset-4"
+              >
+                {t('login')}
+              </Link>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
