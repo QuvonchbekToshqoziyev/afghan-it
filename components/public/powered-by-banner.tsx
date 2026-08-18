@@ -5,7 +5,8 @@ const DEFAULT_TENANT_ID = '00000000-0000-0000-0000-000000000001'
 const FREE_STARTER_PLANS = ['free', 'starter']
 
 export async function PoweredByBanner() {
-  const tenant = await getCurrentTenant()
+  let tenant: Awaited<ReturnType<typeof getCurrentTenant>> = null
+  try { tenant = await getCurrentTenant() } catch { return null }
   const t = await getTranslations('landingPageBuilder.poweredBy')
 
   // Don't show on main platform or if no tenant

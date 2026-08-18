@@ -20,7 +20,8 @@ interface FooterProps {
 }
 
 export async function Footer({ footerSettings }: FooterProps = {}) {
-    const tenant = await getCurrentTenant();
+    let tenant: Awaited<ReturnType<typeof getCurrentTenant>> = null;
+    try { tenant = await getCurrentTenant(); } catch { /* Neon-only public deployment */ }
     const t = await getTranslations('landingPageBuilder.footer');
     const brandName = tenant && tenant.id !== DEFAULT_TENANT_ID ? tenant.name : 'LMS V2';
 
