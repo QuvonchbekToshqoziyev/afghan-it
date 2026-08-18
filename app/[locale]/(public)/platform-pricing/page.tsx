@@ -11,13 +11,18 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
 }
 
 export default async function PlatformPricingPage() {
-  const adminClient = await createAdminClient()
+  let plans: Parameters<typeof PlatformPricingDisplay>[0]['plans'] = []
+  try {
+    const adminClient = await createAdminClient()
+    const { data } = await adminClient
+      .from('platform_plans')
+      .select('*')
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true })
+    plans = data || []
+  } catch {
+    // Pricing remains renderable while the legacy Supabase project is replaced by Neon.
+  }
 
-  const { data: plans } = await adminClient
-    .from('platform_plans')
-    .select('*')
-    .eq('is_active', true)
-    .order('sort_order', { ascending: true })
-
-  return <PlatformPricingDisplay plans={plans || []} />
+  return <PlatformPricingDisplay plans={plans} />
 }

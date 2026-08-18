@@ -25,6 +25,11 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// Legacy dashboard pages still depend on the pre-Neon Supabase project. Keep
+// those request-bound queries out of the Vercel build while the public/API
+// migration proceeds.
+export const dynamic = 'force-dynamic';
+
 export async function generateMetadata({
   params,
 }: {
