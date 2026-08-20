@@ -12,7 +12,7 @@ class LearningService {
   async listCourses() { return this.database.db.select().from(courses).where(eq(courses.published, true)); }
   async course(id: string) {
     const [course] = await this.database.db.select().from(courses).where(eq(courses.id, id));
-    if (!course || !course.published) return null;
+    if (!course || !course.published) throw new NotFoundException('Published course not found');
     const courseModules = await this.database.db.select().from(modules).where(eq(modules.courseId, id));
     const allLessons = courseModules.length
       ? await this.database.db.select().from(lessons).where(inArray(lessons.moduleId, courseModules.map((module) => module.id)))

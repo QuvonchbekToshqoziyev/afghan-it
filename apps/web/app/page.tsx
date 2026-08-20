@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
+import Link from 'next/link';
 
 type Course = { id: string; slug: string; title: string; description: string; category: string; level: string };
 type Dashboard = { completedLessons: number; xp: number; certificates: unknown[]; enrollments: unknown[] };
@@ -17,6 +18,8 @@ export default function Home() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [isRegistering, setIsRegistering] = useState(false);
   const [message, setMessage] = useState('');
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [locale, setLocale] = useState<Locale>('en');
@@ -28,9 +31,9 @@ export default function Home() {
     fetch(`${api}/courses`, { credentials: 'include' }).then((response) => response.ok ? response.json() : []).then(setCourses).catch(() => setCourses([]));
   }, []);
 
-  async function login(event: FormEvent<HTMLFormElement>) {
+  async function authenticate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const response = await fetch(`${api}/auth/login`, { method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, password }) });
+    const response = await fetch(`${api}/auth/${isRegistering ? 'register' : 'login'}`, { method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify(isRegistering ? { email, password, name, preferredLocale: locale } : { email, password }) });
     if (!response.ok) return setMessage(text.failed);
     const session = await response.json() as { accessToken: string };
     sessionStorage.setItem('afghan-it.access-token', session.accessToken);
@@ -51,8 +54,8 @@ export default function Home() {
   return <main dir={locale === 'en' ? 'ltr' : 'rtl'}>
     <header className="masthead"><div className="brand">Afghan <span>IT Academy</span></div><div><button className="language" onClick={() => setLocale(locale === 'en' ? 'fa' : locale === 'fa' ? 'ps' : 'en')}>{locale === 'en' ? 'دری' : locale === 'fa' ? 'پښتو' : 'English'}</button><a href="#login">{text.signIn}</a></div></header>
     <section className="hero"><div className="eyebrow">{text.eyebrow}</div><h1>{text.title}</h1><p>{text.hero}</p></section>
-    <section aria-labelledby="courses"><div className="section-title"><h2 id="courses">{text.explore}</h2><span>{courses.length} {text.available}</span></div><div className="course-grid">{courses.map((course) => <article className="course" key={course.id}><small>{course.category} · {course.level}</small><h3>{course.title}</h3><p>{course.description}</p></article>)}</div></section>
-    <section className="login" id="login" aria-labelledby="login-title"><div className="section-title"><h2 id="login-title">{text.continue}</h2></div><form onSubmit={login}><label>{text.email}<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required /></label><label>{text.password}<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required /></label><button>{text.signIn}</button></form><p className="notice" role="status">{message}</p></section>
+    <section aria-labelledby="courses"><div className="section-title"><h2 id="courses">{text.explore}</h2><span>{courses.length} {text.available}</span></div><div className="course-grid">{courses.map((course) => <article className="course" key={course.id}><small>{course.category} · {course.level}</small><h3>{course.title}</h3><p>{course.description}</p><Link href={`/courses/${course.id}`}>View programme →</Link></article>)}</div></section>
+    <section className="login" id="login" aria-labelledby="login-title"><div className="section-title"><h2 id="login-title">{isRegistering ? 'Create your learner account' : text.continue}</h2><button className="quiet" type="button" onClick={() => setIsRegistering(!isRegistering)}>{isRegistering ? text.signIn : 'Create account'}</button></div><form onSubmit={authenticate}>{isRegistering && <label>Full name<input value={name} onChange={(event) => setName(event.target.value)} required /></label>}<label>{text.email}<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required /></label><label>{text.password}<input type="password" minLength={8} value={password} onChange={(event) => setPassword(event.target.value)} required /></label><button>{isRegistering ? 'Create account' : text.signIn}</button></form><p className="notice" role="status">{message}</p></section>
     {dashboard && <section className="dashboard" aria-labelledby="dashboard-title"><div className="section-title"><h2 id="dashboard-title">{text.dashboard}</h2></div><div className="stats"><div className="stat"><strong>{dashboard.enrollments.length}</strong>{text.active}</div><div className="stat"><strong>{dashboard.completedLessons}</strong>{text.lessons}</div><div className="stat"><strong>{dashboard.xp}</strong>{text.xp}</div></div></section>}
     <section className="login" aria-labelledby="mentor-title"><div className="section-title"><h2 id="mentor-title">AI Mentor</h2></div><form onSubmit={askMentor}><label>Ask about IT, English, code, or homework<input value={mentorMessage} onChange={(event) => setMentorMessage(event.target.value)} required /></label><button>Ask AI Mentor</button></form><p className="notice" role="status">{mentorAnswer}</p></section>
   </main>;

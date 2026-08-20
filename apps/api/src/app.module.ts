@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { LearningModule } from './learning/learning.module.js';
 import { StudentModule } from './student/student.module.js';
 import { AiModule } from './ai/ai.module.js';
+import { ManagementModule } from './management/management.module.js';
 import { AccessTokenGuard } from './auth/access-token.guard.js';
 import { Public } from './auth/public.decorator.js';
 
@@ -16,7 +17,7 @@ class HealthController {
 }
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true }), AuthModule, LearningModule, StudentModule, AiModule],
+  imports: [ConfigModule.forRoot({ isGlobal: true }), AuthModule, LearningModule, StudentModule, AiModule, ManagementModule],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: AccessTokenGuard }],
 })
