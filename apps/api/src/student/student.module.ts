@@ -1,7 +1,7 @@
 import { Controller, Get, Inject, Injectable, NotFoundException, Param, Req } from '@nestjs/common';
 import { Module } from '@nestjs/common';
 import { and, count, desc, eq, sql } from 'drizzle-orm';
-import { certificates, courses, createDb, enrollments, lessonProgress, plans, subscriptions, xpEvents } from '@afghan-it/db';
+import { achievements, assessmentAttempts, certificates, courses, createDb, enrollments, lessonProgress, plans, subscriptions, userAchievements, xpEvents } from '@afghan-it/db';
 import type { AuthenticatedRequest } from '../auth/access-token.guard.js';
 import { Public } from '../auth/public.decorator.js';
 
@@ -16,7 +16,9 @@ class StudentService {
       .from(lessonProgress).where(and(eq(lessonProgress.userId, userId), eq(lessonProgress.completed, true)));
     const points = await this.database.db.select({ total: sql<number>`coalesce(sum(${xpEvents.amount}), 0)` }).from(xpEvents).where(eq(xpEvents.userId, userId));
     const earnedCertificates = await this.database.db.select().from(certificates).where(eq(certificates.userId, userId));
-    return { enrollments: enrolled, completedLessons: Number(progress[0]?.completed || 0), xp: Number(points[0]?.total || 0), certificates: earnedCertificates };
+    const attempts = await this.database.db.select().from(assessmentAttempts).where(eq(assessmentAttempts.userId, userId));
+    const earnedAchievements = await this.database.db.select({ achievement: achievements, earnedAt: userAchievements.earnedAt }).from(userAchievements).innerJoin(achievements, eq(userAchievements.achievementId, achievements.id)).where(eq(userAchievements.userId, userId));
+    return { enrollments: enrolled, completedLessons: Number(progress[0]?.completed || 0), xp: Number(points[0]?.total || 0), certificates: earnedCertificates, assessmentAttempts: attempts, achievements: earnedAchievements };
   }
 
   certificates(userId: string) {

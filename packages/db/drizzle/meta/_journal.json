@@ -15,6 +15,48 @@
       "when": 1787216047636,
       "tag": "0001_tiresome_slapstick",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787223000000,
+      "tag": "0002_assessment_attempts",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787223600000,
+      "tag": "0003_course_locales",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1787224200000,
+      "tag": "0004_course_access_tiers",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1787224500000,
+      "tag": "0005_text_lesson_classification",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787224800000,
+      "tag": "0006_gamification_achievements",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787225100000,
+      "tag": "0007_subscription_idempotency",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,9 @@
+{
+  "name": "Afghan IT Academy",
+  "short_name": "Afghan IT",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f7f9",
+  "theme_color": "#07172c",
+  "icons": []
+}

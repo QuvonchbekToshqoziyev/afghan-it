@@ -7,7 +7,7 @@ export async function createApiApplication() {
     if (!process.env[name]) throw new Error(`${name} is required to start the Afghan IT API`);
   }
 
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   const allowedOrigins = (process.env.WEB_APP_ORIGIN || 'http://localhost:3000')
     .split(',')
     .map((origin) => origin.trim())
