@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { SiteHeader } from '../../components/site-header';
 import { useLanguage } from '../../lib/language';
+import { authFetch, signOut as endSession } from '../../lib/api';
 
 type Account = { id: string; name: string; email: string; preferredLocale: string; createdAt: string; roles?: string[] };
 const api = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
@@ -16,7 +17,7 @@ const copy = {
 export default function AccountPage() {
   const [account, setAccount] = useState<Account | null>(null); const [loading, setLoading] = useState(true); const [error, setError] = useState('');
   const { language } = useLanguage(); const c = copy[language];
-  useEffect(() => { const token = sessionStorage.getItem('afghan-it.access-token'); if (!token) { setError(c.required); setLoading(false); return; } fetch(`${api}/me`, { headers: { authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : Promise.reject(new Error(c.failed))).then(setAccount).catch(e => setError(e.message)).finally(() => setLoading(false)); }, [c.required, c.failed]);
-  function signOut() { sessionStorage.removeItem('afghan-it.access-token'); window.location.assign('/'); }
+  useEffect(() => { authFetch(`${api}/auth/me`).then(r => r.ok ? r.json() : Promise.reject(new Error(c.required))).then(setAccount).catch(e => setError(e.message)).finally(() => setLoading(false)); }, [c.required]);
+  async function signOut() { await endSession(); window.location.assign('/'); }
   return <main><SiteHeader /><section className="page-hero"><span className="eyebrow">{c.eyebrow}</span><h1>{c.title}</h1><p>{c.intro}</p></section>{loading && <p className="page-state">{c.loading}</p>}{error && <section className="page-state"><p>{error}</p><Link className="primary-button" href="/login">{c.signIn}</Link></section>}{account && <section className="account-layout"><div className="account-card"><div className="avatar">{account.name?.slice(0, 1).toUpperCase() || 'A'}</div><h2>{account.name}</h2><p>{account.email}</p><span className="account-role">{account.roles?.join(' · ') || 'Learner'}</span></div><div className="account-card account-details"><h2>{c.details}</h2><dl><div><dt>{c.name}</dt><dd>{account.name}</dd></div><div><dt>Email</dt><dd>{account.email}</dd></div><div><dt>{c.language}</dt><dd>{account.preferredLocale === 'fa' ? 'Dari' : account.preferredLocale === 'ps' ? 'Pashto' : 'English'}</dd></div><div><dt>{c.created}</dt><dd>{new Date(account.createdAt).toLocaleDateString(language)}</dd></div></dl><div className="account-actions"><Link className="primary-button" href="/dashboard">{c.dashboard}</Link><button className="danger-button" onClick={signOut}>{c.signOut}</button></div></div></section>}</main>;
 }

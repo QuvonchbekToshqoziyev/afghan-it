@@ -1,53 +1,34 @@
 'use client';
 
-import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { FormEvent, useEffect, useState } from 'react';
+import { SiteHeader } from '../../../components/site-header';
+import { authFetch } from '../../../lib/api';
+import { localize, useLanguage, type TranslatedContent } from '../../../lib/language';
 
 type Lesson = { id: string; title: string; type: string; durationMinutes: number; content: string; mediaUrl?: string | null };
 type Module = { id: string; title: string; lessons: Lesson[] };
-type Course = { id: string; title: string; description: string; category: string; level: string; modules: Module[] };
+type Course = TranslatedContent & { id: string; category: string; level: string; modules: Module[] };
 type Question = { id: string; prompt: string; kind: string; options: string[]; points: number };
 const api = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
+const copy = {
+  en: { loading: 'Loading programme…', missing: 'This course could not be found.', back: 'Back to courses', enroll: 'Enroll for free', signIn: 'Sign in to continue.', enrolled: 'You are enrolled. Start with the first lesson.', enrollFail: 'Unable to enroll right now.', roadmap: 'Course roadmap', lessons: 'lessons', preparing: 'This programme is being prepared. Enrollment is open and lessons will appear here when published.', assessment: 'Open assessment', open: 'Open', complete: 'Mark complete', close: 'Close', material: 'Lesson material will be available here.', submit: 'Submit assessment', placeholder: 'Submit your explanation or solution' },
+  fa: { loading: 'برنامه در حال بارگذاری است…', missing: 'این دوره پیدا نشد.', back: 'بازگشت به دوره‌ها', enroll: 'ثبت‌نام رایگان', signIn: 'برای ادامه وارد شوید.', enrolled: 'ثبت‌نام شدید. از درس نخست آغاز کنید.', enrollFail: 'ثبت‌نام اکنون ممکن نیست.', roadmap: 'نقشه دوره', lessons: 'درس', preparing: 'این برنامه در حال آماده‌سازی است. ثبت‌نام باز است و درس‌ها پس از انتشار نمایش داده می‌شوند.', assessment: 'باز کردن آزمون', open: 'باز کردن', complete: 'تکمیل درس', close: 'بستن', material: 'محتوای درس اینجا قرار می‌گیرد.', submit: 'ارسال آزمون', placeholder: 'توضیح یا راه‌حل خود را بنویسید' },
+  ps: { loading: 'پروګرام پورته کېږي…', missing: 'دا کورس ونه موندل شو.', back: 'کورسونو ته ستنېدل', enroll: 'وړیا نوم‌لیکنه', signIn: 'د دوام لپاره ننوځئ.', enrolled: 'نوم‌لیکنه وشوه. له لومړي درس څخه پیل وکړئ.', enrollFail: 'اوس نوم‌لیکنه نه کېږي.', roadmap: 'د کورس نقشه', lessons: 'درسونه', preparing: 'دا پروګرام چمتو کېږي. نوم‌لیکنه خلاصه ده او درسونه به تر خپرېدو وروسته ښکاره شي.', assessment: 'ازموینه پرانیزئ', open: 'پرانیزئ', complete: 'درس بشپړ کړئ', close: 'وتړئ', material: 'د درس مواد به دلته وي.', submit: 'ازموینه وسپارئ', placeholder: 'خپل تشریح یا حل ولیکئ' }
+};
 
 export default function CoursePage() {
-  const { id } = useParams<{ id: string }>();
-  const [course, setCourse] = useState<Course | null>(null);
-  const [message, setMessage] = useState('');
-  const [activeLesson, setActiveLesson] = useState<Lesson | null>(null);
-  const [assessment, setAssessment] = useState<{ lesson: Lesson; questions: Question[] } | null>(null);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const { id } = useParams<{ id: string }>(); const { language } = useLanguage(); const c = copy[language];
+  const [course, setCourse] = useState<Course | null>(null); const [loading, setLoading] = useState(true); const [error, setError] = useState(''); const [message, setMessage] = useState('');
+  const [activeLesson, setActiveLesson] = useState<Lesson | null>(null); const [assessment, setAssessment] = useState<{ lesson: Lesson; questions: Question[] } | null>(null); const [answers, setAnswers] = useState<Record<string, string>>({});
 
-  useEffect(() => { fetch(`${api}/courses/${id}`).then(async (response) => response.ok ? response.json() : null).then(setCourse).catch(() => setCourse(null)); }, [id]);
-  async function enroll() {
-    const accessToken = sessionStorage.getItem('afghan-it.access-token');
-    if (!accessToken) return setMessage('Create an account or sign in first.');
-    const response = await fetch(`${api}/courses/${id}/enroll`, { method: 'POST', headers: { authorization: `Bearer ${accessToken}` } });
-    setMessage(response.ok ? 'You are enrolled. Start with the first lesson.' : 'Unable to enroll right now.');
-  }
-  async function complete(lesson: Lesson) {
-    const accessToken = sessionStorage.getItem('afghan-it.access-token');
-    if (!accessToken) return setMessage('Sign in before recording progress.');
-    const response = await fetch(`${api}/lessons/${lesson.id}/progress`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${accessToken}` }, body: JSON.stringify({ percent: 100 }) });
-    setMessage(response.ok ? 'Lesson completed. Finish every lesson to receive your certificate and 100 XP.' : 'Enroll before completing lessons.');
-  }
-  async function openAssessment(lesson: Lesson) {
-    const accessToken = sessionStorage.getItem('afghan-it.access-token');
-    if (!accessToken) return setMessage('Sign in before opening an assessment.');
-    const response = await fetch(`${api}/lessons/${lesson.id}/assessment`, { headers: { authorization: `Bearer ${accessToken}` } });
-    if (!response.ok) return setMessage('Enroll before opening this assessment.');
-    setAnswers({});
-    setAssessment({ lesson, questions: await response.json() });
-  }
-  async function submitAssessment(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!assessment) return;
-    const accessToken = sessionStorage.getItem('afghan-it.access-token');
-    const response = await fetch(`${api}/lessons/${assessment.lesson.id}/attempt`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${accessToken}` }, body: JSON.stringify({ answers }) });
-    const result = await response.json().catch(() => ({})) as { passed?: boolean; score?: number; message?: string };
-    setMessage(result.passed ? `Assessment passed with ${result.score}%. Continue to the next lesson.` : result.message || `Assessment score: ${result.score ?? 0}%. Try again.`);
-    if (result.passed) setAssessment(null);
-  }
-  if (!course) return <main><p>Loading programme…</p></main>;
-  return <main><header className="masthead"><Link href="/" className="brand">Afghan <span>IT Academy</span></Link><Link href="/#login">Sign in</Link></header><section className="hero"><div className="eyebrow">{course.category} · {course.level}</div><h1>{course.title}</h1><p>{course.description}</p><button onClick={enroll}>Enroll for free</button><p className="notice">{message}</p></section><section><div className="section-title"><h2>Course roadmap</h2><span>{course.modules.reduce((total, module) => total + module.lessons.length, 0)} lessons</span></div>{course.modules.length ? course.modules.map((module) => <article className="learning-module" key={module.id}><h3>{module.title}</h3>{module.lessons.map((lesson) => <div className="lesson" key={lesson.id}><div><strong>{lesson.title}</strong><small>{lesson.type} · {lesson.durationMinutes} min</small></div><div>{['quiz', 'practical', 'exam'].includes(lesson.type) ? <button onClick={() => openAssessment(lesson)}>Open assessment</button> : <><button className="quiet" onClick={() => setActiveLesson(lesson)}>Open</button><button onClick={() => complete(lesson)}>Mark complete</button></>}</div></div>)}</article>) : <p>This programme is being prepared by an instructor. Enrollment is open and the lesson roadmap will appear here when published.</p>}</section>{activeLesson && <section className="lesson-reader"><div className="section-title"><h2>{activeLesson.title}</h2><button className="quiet" onClick={() => setActiveLesson(null)}>Close</button></div>{activeLesson.mediaUrl && <video className="lesson-video" controls preload="metadata" src={activeLesson.mediaUrl} /> }<p>{activeLesson.content || 'Lesson material will be available here.'}</p><button onClick={() => complete(activeLesson)}>Mark lesson complete</button></section>}{assessment && <section className="lesson-reader"><div className="section-title"><h2>{assessment.lesson.title}</h2><button className="quiet" onClick={() => setAssessment(null)}>Close</button></div><form onSubmit={submitAssessment} className="assessment-form">{assessment.questions.map((question) => <fieldset key={question.id}><legend>{question.prompt}</legend>{question.options.length ? question.options.map((option) => <label key={option}><input type="radio" name={question.id} value={option} checked={answers[question.id] === option} onChange={() => setAnswers({ ...answers, [question.id]: option })} required />{option}</label>) : <textarea value={answers[question.id] || ''} onChange={(event) => setAnswers({ ...answers, [question.id]: event.target.value })} minLength={20} required placeholder="Submit your explanation or solution" />}</fieldset>)}<button>Submit assessment</button></form></section>}</main>;
+  useEffect(() => { setLoading(true); setError(''); fetch(`${api}/courses/${id}`).then(async response => { if (!response.ok) throw new Error(c.missing); return response.json(); }).then((item: Course) => setCourse(localize(item, language))).catch(reason => setError(reason.message || c.missing)).finally(() => setLoading(false)); }, [id, language, c.missing]);
+  async function enroll() { const response = await authFetch(`${api}/courses/${id}/enroll`, { method: 'POST' }); setMessage(response.ok ? c.enrolled : response.status === 401 ? c.signIn : c.enrollFail); }
+  async function complete(lesson: Lesson) { const response = await authFetch(`${api}/lessons/${lesson.id}/progress`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ percent: 100 }) }); setMessage(response.ok ? c.complete : response.status === 401 ? c.signIn : c.enrollFail); }
+  async function openAssessment(lesson: Lesson) { const response = await authFetch(`${api}/lessons/${lesson.id}/assessment`); if (!response.ok) return setMessage(response.status === 401 ? c.signIn : c.enrollFail); setAnswers({}); setAssessment({ lesson, questions: await response.json() }); }
+  async function submitAssessment(event: FormEvent<HTMLFormElement>) { event.preventDefault(); if (!assessment) return; const response = await authFetch(`${api}/lessons/${assessment.lesson.id}/attempt`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ answers }) }); const result = await response.json().catch(() => ({})) as { passed?: boolean; score?: number; message?: string }; setMessage(result.message || `${result.score ?? 0}%`); if (result.passed) setAssessment(null); }
+
+  if (loading) return <main><SiteHeader /><p className="page-state">{c.loading}</p></main>;
+  if (error || !course) return <main><SiteHeader /><section className="page-state"><p>{error || c.missing}</p><a className="primary-button" href="/courses">{c.back}</a></section></main>;
+  return <main><SiteHeader /><section className="hero"><div className="eyebrow">{course.category} · {course.level}</div><h1>{course.title}</h1><p>{course.description}</p><button onClick={enroll}>{c.enroll}</button><p className="notice">{message}</p></section><section><div className="section-title"><h2>{c.roadmap}</h2><span>{course.modules.reduce((total, module) => total + module.lessons.length, 0)} {c.lessons}</span></div>{course.modules.length ? course.modules.map(module => <article className="learning-module" key={module.id}><h3>{module.title}</h3>{module.lessons.map(lesson => <div className="lesson" key={lesson.id}><div><strong>{lesson.title}</strong><small>{lesson.type} · {lesson.durationMinutes} min</small></div><div>{['quiz', 'practical', 'exam'].includes(lesson.type) ? <button onClick={() => openAssessment(lesson)}>{c.assessment}</button> : <><button className="quiet" onClick={() => setActiveLesson(lesson)}>{c.open}</button><button onClick={() => complete(lesson)}>{c.complete}</button></>}</div></div>)}</article>) : <p>{c.preparing}</p>}</section>{activeLesson && <section className="lesson-reader"><div className="section-title"><h2>{activeLesson.title}</h2><button className="quiet" onClick={() => setActiveLesson(null)}>{c.close}</button></div>{activeLesson.mediaUrl && <video className="lesson-video" controls preload="metadata" src={activeLesson.mediaUrl} />}<p>{activeLesson.content || c.material}</p><button onClick={() => complete(activeLesson)}>{c.complete}</button></section>}{assessment && <section className="lesson-reader"><div className="section-title"><h2>{assessment.lesson.title}</h2><button className="quiet" onClick={() => setAssessment(null)}>{c.close}</button></div><form onSubmit={submitAssessment} className="assessment-form">{assessment.questions.map(question => <fieldset key={question.id}><legend>{question.prompt}</legend>{question.options.length ? question.options.map(option => <label key={option}><input type="radio" name={question.id} value={option} checked={answers[question.id] === option} onChange={() => setAnswers({ ...answers, [question.id]: option })} required />{option}</label>) : <textarea value={answers[question.id] || ''} onChange={event => setAnswers({ ...answers, [question.id]: event.target.value })} minLength={20} required placeholder={c.placeholder} />}</fieldset>)}<button>{c.submit}</button></form></section>}</main>;
 }

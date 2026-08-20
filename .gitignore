@@ -41,6 +41,8 @@ yarn-error.log*
 
 # temporary screenshots
 *.png
+!public/icon-192.png
+!public/icon-512.png
 
 # playwright reports & test results
 playwright-report/

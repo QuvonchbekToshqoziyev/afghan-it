@@ -3,6 +3,7 @@
 import { FormEvent, useState } from 'react';
 import { SiteHeader } from '../../components/site-header';
 import { useLanguage } from '../../lib/language';
+import { authFetch } from '../../lib/api';
 
 const api = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 const copy = {
@@ -14,6 +15,6 @@ const copy = {
 export default function MentorPage() {
   const [question, setQuestion] = useState(''); const [answer, setAnswer] = useState(''); const [busy, setBusy] = useState(false);
   const { language } = useLanguage(); const c = copy[language];
-  async function ask(e: FormEvent) { e.preventDefault(); const token = sessionStorage.getItem('afghan-it.access-token'); if (!token) { setAnswer(c.required); return; } setBusy(true); try { const r = await fetch(`${api}/ai/mentor`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ message: question }) }); const data = await r.json().catch(() => ({})) as { answer?: string; message?: string }; setAnswer(data.answer || data.message || c.unavailable); } catch { setAnswer(c.server); } finally { setBusy(false); } }
+  async function ask(e: FormEvent) { e.preventDefault(); setBusy(true); try { const r = await authFetch(`${api}/ai/mentor`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ message: question }) }); const data = await r.json().catch(() => ({})) as { answer?: string; message?: string }; setAnswer(r.ok ? data.answer || c.unavailable : data.message || c.required); } catch { setAnswer(c.server); } finally { setBusy(false); } }
   return <main><SiteHeader /><section className="mentor-page"><div className="mentor-orb">✦</div><span className="eyebrow">{c.eyebrow}</span><h1>{c.title}</h1><p>{c.intro}</p><form className="mentor-form" onSubmit={ask}><textarea value={question} onChange={e => setQuestion(e.target.value)} placeholder={c.placeholder} required /><button className="primary-button" disabled={busy}>{busy ? c.busy : c.ask}</button></form>{answer && <article className="mentor-answer"><span>AI Mentor</span><p>{answer}</p></article>}</section></main>;
 }

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 
 export type Language = 'fa' | 'ps' | 'en';
+export type TranslatedContent = { title: string; description: string; translations?: Partial<Record<Language, { title?: string; description?: string }>> };
 
 const STORAGE_KEY = 'afghan-it.language';
 const EVENT_NAME = 'afghan-it.language-change';
@@ -31,4 +32,9 @@ export function useLanguage() {
   }
 
   return { language, changeLanguage };
+}
+
+export function localize<T extends TranslatedContent>(item: T, language: Language) {
+  const translated = item.translations?.[language];
+  return { ...item, title: translated?.title || item.title, description: translated?.description || item.description };
 }
