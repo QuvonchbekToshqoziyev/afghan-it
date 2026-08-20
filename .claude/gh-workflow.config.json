@@ -1,5 +1,0 @@
-{
-  "projectBoard": null,
-  "prTemplate": ".github/pull_request_template.md",
-  "branchConvention": "<type>/<slug>-<N>"
-}

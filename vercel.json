@@ -1,25 +1,5 @@
 {
   "framework": "nextjs",
-  "crons": [
-    {
-      "path": "/api/cron/expire-subscriptions",
-      "schedule": "0 0 * * *"
-    },
-    {
-      "path": "/api/cron/league-rollover",
-      "schedule": "0 1 * * 1"
-    },
-    {
-      "path": "/api/cron/expire-platform-subscriptions",
-      "schedule": "0 2 * * *"
-    },
-    {
-      "path": "/api/cron/enforce-plan-limits",
-      "schedule": "0 3 * * *"
-    },
-    {
-      "path": "/api/cron/daily-digest",
-      "schedule": "0 4 * * *"
-    }
-  ]
+  "buildCommand": "npm run build",
+  "outputDirectory": "apps/web/.next"
 }
